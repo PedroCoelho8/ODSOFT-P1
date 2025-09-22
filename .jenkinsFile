@@ -1,0 +1,79 @@
+pipeline {
+    agent any
+    tools {
+        maven 'Maven 3.9.9'
+    }
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Clean') {
+            steps {
+                sh 'mvn clean'
+            }
+        }
+
+        stage('Install') {
+                    steps {
+                        sh 'mvn install -DskipTests'
+                    }
+                }
+
+
+        stage('Unit Tests') {
+            steps {
+                sh 'mvn surefire:test'
+            }
+        }
+
+        stage('Integration Tests') {
+            steps {
+                sh 'mvn failsafe:integration-test failsafe:verify'
+            }
+        }
+
+
+        stage('Mutation Tests') {
+            steps {
+                sh 'mvn pitest:mutationCoverage'
+            }
+        }
+
+
+
+        stage('Package') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        /*stage('Deploy') {
+            steps {
+                dir(env.PROJECT_DIR) {
+                    script {
+                        if (fileExists('target/psoft-g1-0.0.1-SNAPSHOT.jar')) {
+                            sh 'java -jar target/psoft-g1-0.0.1-SNAPSHOT.jar &'
+                        } else {
+                            error 'JAR file not found. Aborting deployment.'
+                        }
+                    }
+                }
+            }
+        }*/
+
+    }
+    post {
+        always {
+            junit '**/target/surefire-reports/*.xml'
+        }
+        success {
+            echo 'Build, testes e deploy concluídos com sucesso!'
+        }
+        failure {
+            echo 'Houve um erro no processo de build, testes ou deploy.'
+        }
+    }
+}

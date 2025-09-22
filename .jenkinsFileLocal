@@ -1,0 +1,117 @@
+pipeline {
+    agent any
+    tools {
+
+        maven 'Maven 3.9.9'
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm  // Realiza o checkout do código
+            }
+        }
+        stage('Clean') {
+            steps {
+                bat 'mvn clean'  // Comando para limpar o projeto
+            }
+        }
+
+        stage('Install') {
+                    steps {
+                        bat 'mvn install -DskipTests'  // Comando para instalar sem rodar os testes
+                    }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                // Run only unit tests
+                bat 'mvn surefire:test'
+            }
+        }
+        stage('Integration Tests') {
+            steps {
+
+                // Run only integration tests
+                bat 'mvn failsafe:integration-test failsafe:verify'
+            }
+        }
+
+
+        //Isto está a fazer todos os testes
+        stage('Mutation Tests') {
+            steps {
+                bat 'mvn pitest:mutationCoverage -DskipPitest=false'
+            }
+        }
+
+        stage('Clean Install'){ //In order to create the jacoco file for the SonarQube Analysis. This happens because the jacoco file is only created with the mvn test command (as defined on pom.xml). This test also skips the mutations tests
+            steps{
+                bat 'mvn clean test -DskipPitest=true'
+            }
+        }
+
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    bat 'mvn sonar:sonar -Dsonar.projectKey=psoft-g1 -Dsonar.token=squ_4158c4aac2449c15705b9e350bbd7206d32658a0 -Dsonar.coverage.jacoco.xmlReportPaths=target/jacoco/jacoco.xml'
+
+                }
+            }
+        }
+
+
+
+
+
+        stage('Package') {
+            steps {
+                bat 'mvn package -DskipTests'  // Creates the artifact without running tests
+            }
+        }
+
+
+        stage('Run Application') {
+            steps {
+                script {
+                    // Inicia a aplicação em segundo plano
+                    bat 'start "runapp" cmd /c "cd target && java -jar psoft-g1-0.0.1-SNAPSHOT.jar"'
+
+                    // Aguarda um tempo fixo para garantir que a aplicação está iniciada
+                    sleep 30
+
+                   // Envia um ping para ver se o localhost retorna algo
+                   echo "Sending request to check if the application is running..."
+                   def response = bat(script: 'curl http://localhost:8080/swagger-ui/index.html', returnStdout: true).trim()
+
+                                     // Check if the response contains HTML, indicating that the server is up
+                                     if (response) {
+                                          echo "Aplicacao esta a funcionar corretamente."
+                                     } else {
+                                          error "Falha no health check: aplicaca nao esta a responder."
+                                     }
+
+                   // Check if the response contains HTML, indicating that the server is up
+                   if (response) {
+                        echo "Aplicacao esta a funcionar corretamente."
+                   } else {
+                        error "Falha no health check: aplicaca nao esta a responder."
+                   }
+
+                }
+            }
+        }
+}
+
+    post {
+        always {
+                junit '**/target/surefire-reports/*.xml'  // Publica os resultados dos testes
+            }
+        success {
+            echo 'Build e testes concluídos com sucesso!'
+        }
+        failure {
+            echo 'Houve um erro no build ou nos testes.'
+        }
+    }
+}

@@ -1,0 +1,26 @@
+@startuml
+
+node Local {
+node {
+    component "LMS" as LMSComponent
+}
+
+node {
+    component "Jenkins" as JenkinsComponent
+}
+
+node {
+    component "Git Client" as GitClientComponent
+}
+
+}
+
+node VCS{
+    component "VCS" as VCSComponent
+}
+
+Local -down- VCS
+
+
+
+@enduml

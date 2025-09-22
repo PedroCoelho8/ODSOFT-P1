@@ -1,0 +1,23 @@
+@startuml
+
+node {
+    component "LMS" as LMSComponent
+}
+
+node {
+    component "Jenkins" as JenkinsComponent
+}
+
+node {
+    component "VCS" as VCSComponent
+}
+
+node {
+    component "Git Client" as GitClientComponent
+}
+
+LMSComponent -right- JenkinsComponent
+JenkinsComponent -down- VCSComponent
+VCSComponent -down- GitClientComponent
+
+@enduml
